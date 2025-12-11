@@ -2,17 +2,6 @@
 
 A tiny javascript bundler implementation.
 
----
-
-## Other Projects
-
-### [Minirend](https://github.com/TolinSimpson/Minirend)
-A cross-platform javascript runtime.
-
-### [minima-js](https://github.com/TolinSimpson/minima-js)
-A tiny, fully-featured, zero-dependency JavaScript framework. 
-
-
 ## Minibun features: 
 
 - Tree-shaking (`TreeShaker`)
@@ -87,3 +76,14 @@ This package is published to GitHub Packages. To publish a new version:
   - Only **static `import`/`export`** with literal module specifiers.
   - No reliance on subtle ASI (automatic semicolon insertion) edge cases.
 - For general, arbitrary JavaScript on the web, use established tools (esbuild, Rollup, Terser) instead.
+
+
+---
+
+## Other Projects
+
+### [Minirend](https://github.com/TolinSimpson/Minirend)
+A cross-platform javascript runtime.
+
+### [minima-js](https://github.com/TolinSimpson/minima-js)
+A tiny, fully-featured, zero-dependency JavaScript framework. 
