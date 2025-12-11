@@ -13,7 +13,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     
     steps:
@@ -27,11 +27,29 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@tolinsimpson'
       
-      - name: Build project
-        run: npm run build
+      - name: Build project with variants
+        run: node build.js --variants
       
       - name: Run tests
         run: npm test
+      
+      - name: Upload dist artifacts to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/minibun.js
+            dist/minibun-build.js
+            dist/minibun-min.js
+            dist/minibun-obf.js
+            dist/minibun-min-obf.js
+      
+      - name: Upload dist as workflow artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: minibun-dist
+          path: dist/
       
       - name: Publish to GitHub Packages
         env:
