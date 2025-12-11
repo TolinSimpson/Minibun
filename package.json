@@ -1,5 +1,5 @@
 {
-    "name": "@tolinsimpson/minibun-algorithms",
+    "name": "@tolinsimpson/minibun",
     "version": "1.0.0",
     "description": "Pure JavaScript implementations of core JS optimization algorithms.",
     "type": "module",

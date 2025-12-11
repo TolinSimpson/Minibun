@@ -27,7 +27,7 @@ A tiny, fully-featured, zero-dependency JavaScript framework.
 Install from GitHub Packages:
 
 ```bash
-npm install @tolinsimpson/minibun-algorithms
+npm install @tolinsimpson/minibun
 ```
 
 **Note:** You'll need to authenticate with GitHub Packages. Create a `.npmrc` file in your project root:
@@ -49,7 +49,7 @@ import {
   ModuleSystem,
   Obfuscator,
   Pipeline,
-} from '@tolinsimpson/minibun-algorithms';
+} from '@tolinsimpson/minibun';
 ```
 
 ### Publishing
