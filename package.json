@@ -1,0 +1,27 @@
+{
+    "name": "minibun-algorithms",
+    "version": "1.0.0",
+    "description": "Pure JavaScript implementations of core JS optimization algorithms.",
+    "type": "module",
+    "main": "src/index.js",
+    "exports": {
+        ".": "./src/index.js",
+        "./dist": "./dist/minibun.js",
+        "./dist/*": "./dist/*.js"
+    },
+    "keywords": [
+        "tree-shaking",
+        "minification",
+        "uglify",
+        "compression",
+        "bundler",
+        "obfuscation",
+        "javascript"
+    ],
+    "license": "MIT",
+    "scripts": {
+        "build": "node build.js",
+        "build:test": "node build.js --variants",
+        "test": "node --test"
+    }
+}

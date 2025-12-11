@@ -1,0 +1,15 @@
+{
+  "entry": "./index.js",
+  "modulesDir": "./src",
+  "output": "./dist/minibun.js",
+  "pipeline": {
+    "treeShake": false,
+    "bundle": true,
+    "minify": true,
+    "uglify": false,
+    "obfuscate": false,
+    "compress": false
+  }
+}
+
+
