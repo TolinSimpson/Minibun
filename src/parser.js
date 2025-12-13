@@ -28,12 +28,12 @@ const KEYWORDS = new Set([
 ]);
 
 const PUNCTUATORS = new Set([
-  '{','}','(',')','[',']','.','; ',',',':','?','~',
+  '{','}','(',')','[',']','.',';',',',':','?','~',
   '<','>','<=','>=','==','!=','===','!==',
   '+','-','*','%','++','--','<<','>>','>>>',
   '&','|','^','!','&&','||','??',
   '=','+=','-=','*=','%=','<<=','>>=','>>>=',
-  '&=','|=','^=','=>','**','**=','/?','/',
+  '&=','|=','^=','=>','**','**=','/','?.','??=','||=','&&=',
 ]);
 
 function isIdentifierStart(ch) {
@@ -279,6 +279,11 @@ export function findModuleSyntax(tokens) {
     return t;
   }
 
+  // 'from' is a contextual keyword, so it's tokenized as an identifier
+  function isFromKeyword(tok) {
+    return (tok.type === 'identifier' || tok.type === 'keyword') && tok.value === 'from';
+  }
+
   while (i < len) {
     const t = peek();
     if (t.type === 'keyword' && t.value === 'import') {
@@ -291,12 +296,15 @@ export function findModuleSyntax(tokens) {
         consume(); // string
       } else {
         // named/default/namespace imports until 'from'
-        while (!(next.type === 'keyword' && next.value === 'from') && next.type !== 'eof') {
+        // Note: 'from' is a contextual keyword, so it's tokenized as an identifier
+        while (!isFromKeyword(next) && next.type !== 'eof') {
           consume();
           next = peek();
         }
-        if (next.type === 'keyword' && next.value === 'from') {
+        if (isFromKeyword(next)) {
           consume(); // from
+          // Skip whitespace to find the source string
+          while (peek().type === 'whitespace') consume();
           const srcTok = peek();
           if (srcTok.type === 'string') {
             imports.push({
@@ -315,12 +323,18 @@ export function findModuleSyntax(tokens) {
 
     if (t.type === 'keyword' && t.value === 'export') {
       consume(); // export
+      // Skip whitespace after 'export'
+      while (peek().type === 'whitespace') consume();
       const n = peek();
       if (n.type === 'punctuator' && n.value === '*') {
         consume(); // *
+        // Skip whitespace to find 'from'
+        while (peek().type === 'whitespace') consume();
         let fromTok = peek();
-        if (fromTok.type === 'keyword' && fromTok.value === 'from') {
-          consume();
+        if (isFromKeyword(fromTok)) {
+          consume(); // from
+          // Skip whitespace to find source string
+          while (peek().type === 'whitespace') consume();
           const srcTok = peek();
           if (srcTok.type === 'string') {
             exports.push({
@@ -366,6 +380,8 @@ export function findModuleSyntax(tokens) {
       // export const/let/var/function/class name ...
       if (n.type === 'keyword') {
         consume(); // const/let/var/function/class
+        // Skip whitespace to find the identifier
+        while (peek().type === 'whitespace') consume();
         const idTok = peek();
         if (idTok.type === 'identifier') {
           exports.push({ type: 'named', names: [idTok.value] });

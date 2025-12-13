@@ -29,12 +29,12 @@ const KEYWORDS = new Set([
 ]);
 
 const PUNCTUATORS = new Set([
-  '\x7b','\x7d','\x28','\x29','\x5b','\x5d','\x2e','\x3b\x20','\x2c','\x3a','\x3f','\x7e',
+  '\x7b','\x7d','\x28','\x29','\x5b','\x5d','\x2e','\x3b','\x2c','\x3a','\x3f','\x7e',
   '\x3c','\x3e','\x3c\x3d','\x3e\x3d','\x3d\x3d','\x21\x3d','\x3d\x3d\x3d','\x21\x3d\x3d',
   '\x2b','\x2d','\x2a','\x25','\x2b\x2b','\x2d\x2d','\x3c\x3c','\x3e\x3e','\x3e\x3e\x3e',
   '\x26','\x7c','\x5e','\x21','\x26\x26','\x7c\x7c','\x3f\x3f',
   '\x3d','\x2b\x3d','\x2d\x3d','\x2a\x3d','\x25\x3d','\x3c\x3c\x3d','\x3e\x3e\x3d','\x3e\x3e\x3e\x3d',
-  '\x26\x3d','\x7c\x3d','\x5e\x3d','\x3d\x3e','\x2a\x2a','\x2a\x2a\x3d','\x2f\x3f','\x2f',
+  '\x26\x3d','\x7c\x3d','\x5e\x3d','\x3d\x3e','\x2a\x2a','\x2a\x2a\x3d','\x2f','\x3f\x2e','\x3f\x3f\x3d','\x7c\x7c\x3d','\x26\x26\x3d',
 ]);
 
 function isIdentifierStart(ch) {
@@ -280,6 +280,11 @@ export function findModuleSyntax(tokens) {
     return t;
   }
 
+  // 'from' is a contextual keyword, so it's tokenized as an identifier
+  function isFromKeyword(tok) {
+    return (tok.type === '\x69\x64\x65\x6e\x74\x69\x66\x69\x65\x72' || tok.type === '\x6b\x65\x79\x77\x6f\x72\x64') && tok.value === '\x66\x72\x6f\x6d';
+  }
+
   while (i < len) {
     const t = peek();
     if (t.type === '\x6b\x65\x79\x77\x6f\x72\x64' && t.value === '\x69\x6d\x70\x6f\x72\x74') {
@@ -292,12 +297,15 @@ export function findModuleSyntax(tokens) {
         consume(); // string
       } else {
         // named/default/namespace imports until 'from'
-        while (!(next.type === '\x6b\x65\x79\x77\x6f\x72\x64' && next.value === '\x66\x72\x6f\x6d') && next.type !== '\x65\x6f\x66') {
+        // Note: 'from' is a contextual keyword, so it's tokenized as an identifier
+        while (!isFromKeyword(next) && next.type !== '\x65\x6f\x66') {
           consume();
           next = peek();
         }
-        if (next.type === '\x6b\x65\x79\x77\x6f\x72\x64' && next.value === '\x66\x72\x6f\x6d') {
+        if (isFromKeyword(next)) {
           consume(); // from
+          // Skip whitespace to find the source string
+          while (peek().type === '\x77\x68\x69\x74\x65\x73\x70\x61\x63\x65') consume();
           const srcTok = peek();
           if (srcTok.type === '\x73\x74\x72\x69\x6e\x67') {
             imports.push({
@@ -316,12 +324,18 @@ export function findModuleSyntax(tokens) {
 
     if (t.type === '\x6b\x65\x79\x77\x6f\x72\x64' && t.value === '\x65\x78\x70\x6f\x72\x74') {
       consume(); // export
+      // Skip whitespace after 'export'
+      while (peek().type === '\x77\x68\x69\x74\x65\x73\x70\x61\x63\x65') consume();
       const n = peek();
       if (n.type === '\x70\x75\x6e\x63\x74\x75\x61\x74\x6f\x72' && n.value === '\x2a') {
         consume(); // *
+        // Skip whitespace to find 'from'
+        while (peek().type === '\x77\x68\x69\x74\x65\x73\x70\x61\x63\x65') consume();
         let fromTok = peek();
-        if (fromTok.type === '\x6b\x65\x79\x77\x6f\x72\x64' && fromTok.value === '\x66\x72\x6f\x6d') {
-          consume();
+        if (isFromKeyword(fromTok)) {
+          consume(); // from
+          // Skip whitespace to find source string
+          while (peek().type === '\x77\x68\x69\x74\x65\x73\x70\x61\x63\x65') consume();
           const srcTok = peek();
           if (srcTok.type === '\x73\x74\x72\x69\x6e\x67') {
             exports.push({
@@ -367,6 +381,8 @@ export function findModuleSyntax(tokens) {
       // export const/let/var/function/class name ...
       if (n.type === '\x6b\x65\x79\x77\x6f\x72\x64') {
         consume(); // const/let/var/function/class
+        // Skip whitespace to find the identifier
+        while (peek().type === '\x77\x68\x69\x74\x65\x73\x70\x61\x63\x65') consume();
         const idTok = peek();
         if (idTok.type === '\x69\x64\x65\x6e\x74\x69\x66\x69\x65\x72') {
           exports.push({ type: '\x6e\x61\x6d\x65\x64', names: [idTok.value] });
@@ -576,10 +592,6 @@ export class Minifier {
           transformed.push({ ...t, type: '\x63\x6f\x64\x65', value: '\x21\x31' });
           continue;
         }
-        if (t.value === '\x6e\x75\x6c\x6c') {
-          transformed.push({ ...t, type: '\x63\x6f\x64\x65', value: '\x76\x6f\x69\x64\x20\x30' });
-          continue;
-        }
       }
 
       transformed.push(t);
@@ -631,10 +643,9 @@ if (typeof module !== '\x75\x6e\x64\x65\x66\x69\x6e\x65\x64' && module.exports) 
 // ---- bundling.js ----
 // src/bundling.js
 // Bundler: builds dependency graph, topologically sorts, concatenates modules
-// into a CommonJS-style bundle. The dependency graph is built using a
-// lightweight import regex that is sufficient for static ES module imports.
+// into a CommonJS-style bundle. The dependency graph is built using the
+// tokenizer for robust import detection that handles all ES module syntax.
 
-const BUNDLER_IMPORT_RE = /import\s+[^;]+?\s+from\s+['"]([^'"]+)['"]/g;
 
 export class Bundler {
   constructor(moduleMap) {
@@ -644,11 +655,13 @@ export class Bundler {
 
   extractImports(code) {
     const deps = new Set();
-    let m;
-    while ((m = BUNDLER_IMPORT_RE.exec(code)) !== null) {
-      deps.add(m[1]);
+    const tokens = tokenize(code);
+    const { imports } = findModuleSyntax(tokens);
+    for (const imp of imports) {
+      if (imp.source) {
+        deps.add(imp.source);
+      }
     }
-    BUNDLER_IMPORT_RE.lastIndex = 0;
     return deps;
   }
 
@@ -815,8 +828,19 @@ export class ModuleSystem {
       return Promise.resolve().then(() => this.require(name));
     }
   
-    async loadModule(path, name) {
-      const code = await (await fetch(path)).text();
+  async loadModule(path, name) {
+    let code;
+    try {
+      const response = await fetch(path);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch module: ${response.status} ${response.statusText}`);
+      }
+      code = await response.text();
+    } catch (err) {
+      throw new Error(`Failed to load module "${name}" from "${path}": ${err.message}`);
+    }
+
+    try {
       const module = { exports: {} };
       const exports = module.exports;
       const factory = new Function('\x6d\x6f\x64\x75\x6c\x65', '\x65\x78\x70\x6f\x72\x74\x73', code + '\x5c\x6e\x72\x65\x74\x75\x72\x6e\x20\x6d\x6f\x64\x75\x6c\x65\x2e\x65\x78\x70\x6f\x72\x74\x73\x3b');
@@ -824,7 +848,10 @@ export class ModuleSystem {
       const finalExports = result !== undefined ? result : module.exports;
       this.cache.set(name, finalExports);
       return finalExports;
+    } catch (err) {
+      throw new Error(`Failed to execute module "${name}": ${err.message}`);
     }
+  }
   }
   
   // CommonJS export
@@ -838,16 +865,8 @@ export class ModuleSystem {
 // Obfuscator: string encoding + identifier renaming + optional control-flow
 // flattening. String encoding replaces literal contents with hexadecimal
 // escape sequences (e.g. "Hi" -> "\\x48\\x69") while preserving semantics.
+// Uses the tokenizer for robust parsing that handles all JS syntax correctly.
 
-
-const OBFUSCATOR_STRING_RE = /(['"`])(?:\\[\s\S]|(?!\1)[^\\])*\1/g;
-const OBFUSCATOR_IDENT_RE = /\b([A-Za-z_$][\w$]*)\b/g;
-const OBFUSCATOR_RESERVED = new Set([
-  '\x62\x72\x65\x61\x6b','\x63\x61\x73\x65','\x63\x61\x74\x63\x68','\x63\x6c\x61\x73\x73','\x63\x6f\x6e\x73\x74','\x63\x6f\x6e\x74\x69\x6e\x75\x65','\x64\x65\x62\x75\x67\x67\x65\x72','\x64\x65\x66\x61\x75\x6c\x74','\x64\x65\x6c\x65\x74\x65',
-  '\x64\x6f','\x65\x6c\x73\x65','\x65\x78\x70\x6f\x72\x74','\x65\x78\x74\x65\x6e\x64\x73','\x66\x69\x6e\x61\x6c\x6c\x79','\x66\x6f\x72','\x66\x75\x6e\x63\x74\x69\x6f\x6e','\x69\x66','\x69\x6d\x70\x6f\x72\x74','\x69\x6e',
-  '\x69\x6e\x73\x74\x61\x6e\x63\x65\x6f\x66','\x6c\x65\x74','\x6e\x65\x77','\x72\x65\x74\x75\x72\x6e','\x73\x75\x70\x65\x72','\x73\x77\x69\x74\x63\x68','\x74\x68\x69\x73','\x74\x68\x72\x6f\x77','\x74\x72\x79','\x74\x79\x70\x65\x6f\x66',
-  '\x76\x61\x72','\x76\x6f\x69\x64','\x77\x68\x69\x6c\x65','\x77\x69\x74\x68','\x79\x69\x65\x6c\x64','\x65\x6e\x75\x6d','\x61\x77\x61\x69\x74'
-]);
 
 const OBFUSCATOR_GLOBALS = new Set([
   '\x77\x69\x6e\x64\x6f\x77',
@@ -868,7 +887,29 @@ const OBFUSCATOR_GLOBALS = new Set([
   '\x53\x65\x74',
   '\x4d\x61\x70',
   '\x42\x75\x66\x66\x65\x72',
-  '\x61\x74\x6f\x62'
+  '\x61\x74\x6f\x62',
+  '\x75\x6e\x64\x65\x66\x69\x6e\x65\x64',
+  '\x4e\x61\x4e',
+  '\x49\x6e\x66\x69\x6e\x69\x74\x79',
+  '\x45\x72\x72\x6f\x72',
+  '\x54\x79\x70\x65\x45\x72\x72\x6f\x72',
+  '\x52\x65\x66\x65\x72\x65\x6e\x63\x65\x45\x72\x72\x6f\x72',
+  '\x53\x79\x6e\x74\x61\x78\x45\x72\x72\x6f\x72',
+  '\x52\x61\x6e\x67\x65\x45\x72\x72\x6f\x72',
+  '\x65\x76\x61\x6c',
+  '\x70\x61\x72\x73\x65\x49\x6e\x74',
+  '\x70\x61\x72\x73\x65\x46\x6c\x6f\x61\x74',
+  '\x69\x73\x4e\x61\x4e',
+  '\x69\x73\x46\x69\x6e\x69\x74\x65',
+  '\x65\x6e\x63\x6f\x64\x65\x55\x52\x49',
+  '\x64\x65\x63\x6f\x64\x65\x55\x52\x49',
+  '\x65\x6e\x63\x6f\x64\x65\x55\x52\x49\x43\x6f\x6d\x70\x6f\x6e\x65\x6e\x74',
+  '\x64\x65\x63\x6f\x64\x65\x55\x52\x49\x43\x6f\x6d\x70\x6f\x6e\x65\x6e\x74',
+  '\x72\x65\x71\x75\x69\x72\x65',
+  '\x6d\x6f\x64\x75\x6c\x65',
+  '\x65\x78\x70\x6f\x72\x74\x73',
+  '\x5f\x5f\x64\x69\x72\x6e\x61\x6d\x65',
+  '\x5f\x5f\x66\x69\x6c\x65\x6e\x61\x6d\x65',
 ]);
 
 export class Obfuscator {
@@ -937,57 +978,56 @@ export class Obfuscator {
   renameIdentifiers(code) {
     if (!this.options.renameIdentifiers) return code;
 
-    // Preserve string literals so that identifier renaming never changes
-    // string contents; this allows encodeStrings to be controlled separately.
-    const strings = [];
-    // Use a placeholder that cannot be parsed as an identifier so that the
-    // identifier regex never matches inside it.
-    const placeholder = '\x5c\x75\x30\x30\x30\x30';
-    let i = 0;
-
-    const withoutStrings = code.replace(OBFUSCATOR_STRING_RE, match => {
-      const key = `${placeholder}${i++}${placeholder}`;
-      strings.push(match);
-      return key;
-    });
-
+    const tokens = tokenize(code);
     this.idMap.clear();
-    let match;
-    while ((match = OBFUSCATOR_IDENT_RE.exec(withoutStrings)) !== null) {
-      const name = match[1];
-      const index = match.index;
-      if (!this.shouldRenameIdentifier(withoutStrings, index, name)) continue;
-      if (this.idMap.has(name)) continue;
+
+    // First pass: collect all renamable identifiers
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok.type !== '\x69\x64\x65\x6e\x74\x69\x66\x69\x65\x72') continue;
+      if (!this.shouldRenameIdentifier(tokens, i)) continue;
+      if (this.idMap.has(tok.value)) continue;
       const newName = this.generateName(this.idMap.size);
-      this.idMap.set(name, newName);
+      this.idMap.set(tok.value, newName);
     }
-    OBFUSCATOR_IDENT_RE.lastIndex = 0;
 
-    let out = withoutStrings.replace(OBFUSCATOR_IDENT_RE, (full, name, offset) => {
-      if (!this.shouldRenameIdentifier(withoutStrings, offset, name)) return full;
-      const rep = this.idMap.get(name);
-      return rep || full;
-    });
-
-    // Restore string literals
-    strings.forEach((s, idx) => {
-      const key = `${placeholder}${idx}${placeholder}`;
-      out = out.split(key).join(s);
-    });
+    // Second pass: rebuild code with renamed identifiers
+    let out = '';
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok.type === '\x69\x64\x65\x6e\x74\x69\x66\x69\x65\x72' && this.shouldRenameIdentifier(tokens, i)) {
+        const renamed = this.idMap.get(tok.value);
+        out += renamed || tok.value;
+      } else {
+        out += tok.value;
+      }
+    }
 
     return out;
   }
 
-  shouldRenameIdentifier(code, index, name) {
-    if (OBFUSCATOR_RESERVED.has(name)) return false;
+  shouldRenameIdentifier(tokens, index) {
+    const tok = tokens[index];
+    const name = tok.value;
+
+    // Don't rename keywords (tokenizer already marks them, but double-check)
+    if (tok.type === '\x6b\x65\x79\x77\x6f\x72\x64') return false;
+
+    // Don't rename global identifiers
     if (OBFUSCATOR_GLOBALS.has(name)) return false;
 
-    // Look backwards to find previous non-whitespace character
-    let i = index - 1;
-    while (i >= 0 && /\s/.test(code[i])) i -= 1;
-    if (i >= 0 && code[i] === '\x2e') {
-      // property access: obj.name
-      return false;
+    // Look backwards to find previous non-whitespace token
+    let prevIdx = index - 1;
+    while (prevIdx >= 0 && tokens[prevIdx].type === '\x77\x68\x69\x74\x65\x73\x70\x61\x63\x65') {
+      prevIdx--;
+    }
+
+    if (prevIdx >= 0) {
+      const prev = tokens[prevIdx];
+      // Property access: obj.name or obj?.name
+      if (prev.type === '\x70\x75\x6e\x63\x74\x75\x61\x74\x6f\x72' && (prev.value === '\x2e' || prev.value === '\x3f\x2e')) {
+        return false;
+      }
     }
 
     return true;

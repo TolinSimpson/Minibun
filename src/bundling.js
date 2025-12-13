@@ -1,9 +1,9 @@
 // src/bundling.js
 // Bundler: builds dependency graph, topologically sorts, concatenates modules
-// into a CommonJS-style bundle. The dependency graph is built using a
-// lightweight import regex that is sufficient for static ES module imports.
+// into a CommonJS-style bundle. The dependency graph is built using the
+// tokenizer for robust import detection that handles all ES module syntax.
 
-const BUNDLER_IMPORT_RE = /import\s+[^;]+?\s+from\s+['"]([^'"]+)['"]/g;
+import { tokenize, findModuleSyntax } from './parser.js';
 
 export class Bundler {
   constructor(moduleMap) {
@@ -13,11 +13,13 @@ export class Bundler {
 
   extractImports(code) {
     const deps = new Set();
-    let m;
-    while ((m = BUNDLER_IMPORT_RE.exec(code)) !== null) {
-      deps.add(m[1]);
+    const tokens = tokenize(code);
+    const { imports } = findModuleSyntax(tokens);
+    for (const imp of imports) {
+      if (imp.source) {
+        deps.add(imp.source);
+      }
     }
-    BUNDLER_IMPORT_RE.lastIndex = 0;
     return deps;
   }
 

@@ -1,6 +1,13 @@
-# Minibun 
+# Minibun - A tiny javascript bundler implementation.
 
-A tiny javascript bundler implementation.
+> ⚠️ **EXPERIMENTAL** – See Scope & limitations
+
+---
+## The tiny web ecosystem
+### [Minirend](https://github.com/TolinSimpson/minirend) - A tiny cross-platform javascript runtime & web renderer
+### [minima-js](https://github.com/TolinSimpson/minima-js) - A tiny, fully-featured, zero-dependency JavaScript framework. 
+### [LLM Tiny Web](https://github.com/TolinSimpson/LLM-Agent-Tiny-Web-Instructions) - Optimized LLM instructions for writing tiny web code
+---
 
 ## Minibun features: 
 
@@ -41,6 +48,23 @@ import {
 } from '@tolinsimpson/minibun';
 ```
 
+### Development
+
+**Build the main bundle:**
+```bash
+npm run build
+```
+
+**Build all variants** (minified, obfuscated, minified+obfuscated):
+```bash
+npm run build:test
+```
+
+**Run tests:**
+```bash
+npm test
+```
+
 ### Publishing
 
 This package is published to GitHub Packages. To publish a new version:
@@ -62,28 +86,18 @@ This package is published to GitHub Packages. To publish a new version:
   - Edit files here when making changes
   - Tests import directly from `src/` modules
 - **`dist/`** - Generated build artifacts (do not edit directly)
-  - `dist/minibun.js` - Single-file bundle created by `npm run build`
-  - Other variants are generated for testing purposes
-  - Regenerate with `npm run build` after modifying `src/`
+  - `minibun.js` - Main single-file bundle
+  - `minibun-min.js` - Minified variant
+  - `minibun-obf.js` - Obfuscated variant (hex-encoded strings)
+  - `minibun-min-obf.js` - Minified + obfuscated variant
+  - Regenerate with `npm run build` or `npm run build:test`
 
 ### Scope and limitations
 
-- Algorithms are implemented in **pure JavaScript** with **regex-based parsing**.
-- A lightweight **tokenizer** is used for module analysis and safe
-  transformations; there is **no full AST**.
-- They are suitable for **controlled ES6+ codebases** that avoid highly dynamic features:
-  - No `eval`, `with`, or `Function(...)` constructors.
-  - Only **static `import`/`export`** with literal module specifiers.
-  - No reliance on subtle ASI (automatic semicolon insertion) edge cases.
-- For general, arbitrary JavaScript on the web, use established tools (esbuild, Rollup, Terser) instead.
-
-
----
-
-## Other Projects
-
-### [Minirend](https://github.com/TolinSimpson/Minirend)
-A cross-platform javascript runtime.
-
-### [minima-js](https://github.com/TolinSimpson/minima-js)
-A tiny, fully-featured, zero-dependency JavaScript framework. 
+- Algorithms are implemented with a lightweight **tokenizer**.
+- The tokenizer handles strings, templates, comments, regex literals, and all ES6+ syntax, but there is **no full AST** — tokens are emitted in sequence without expression parsing.
+- Suitable for **controlled ES6+ codebases** with static module structure:
+  - Only **static `import`/`export`** with literal specifiers (no `import()` dynamic imports).
+  - No analysis of runtime-evaluated code (`eval`, `new Function()`, `with`).
+  - Tree-shaking uses conservative heuristics; modules with detected side effects are preserved.
+- For production builds of arbitrary JavaScript, use established tools (esbuild, Rollup, Terser) instead.

@@ -18,7 +18,6 @@ test('all dist bundles build and load without syntax errors', async () => {
 
   const bundles = [
     'dist/minibun.js',
-    'dist/minibun-build.js',
     'dist/minibun-min.js',
     'dist/minibun-obf.js',
     'dist/minibun-min-obf.js',
@@ -102,6 +101,100 @@ test('dist/minibun.js exports match src/ modules', async () => {
     assert.ok(
       exportName in distExports,
       `dist/minibun.js should include all exports from src/index.js (missing: ${exportName})`,
+    );
+  }
+});
+
+test('all dist variants are fully functional', async () => {
+  // Build all variants first
+  execFileSync(process.execPath, ['build.js', '--variants'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  });
+
+  const variants = [
+    'dist/minibun.js',
+    'dist/minibun-min.js',
+    'dist/minibun-obf.js',
+    'dist/minibun-min-obf.js',
+  ];
+
+  for (const relPath of variants) {
+    const absPath = path.join(ROOT, relPath);
+    const url = pathToFileURL(absPath).href;
+
+    // Import the variant
+    const mod = await import(url);
+
+    // Test Minifier functionality
+    const minifier = new mod.Minifier();
+    const minified = minifier.minify('const   x   =   1;  // comment');
+    assert.ok(
+      !minified.includes('// comment'),
+      `${relPath}: Minifier should remove comments`,
+    );
+    assert.ok(
+      !minified.includes('   '),
+      `${relPath}: Minifier should collapse whitespace`,
+    );
+
+    // Test Bundler functionality
+    const modules = new Map([
+      ['./entry.js', "import { foo } from './util.js'; export const bar = foo;"],
+      ['./util.js', 'export const foo = 42;'],
+    ]);
+    const bundler = new mod.Bundler(modules);
+    const bundle = bundler.bundle('./entry.js');
+    assert.ok(
+      bundle.includes('/* Module: ./entry.js */'),
+      `${relPath}: Bundler should include entry module`,
+    );
+    assert.ok(
+      bundle.includes('/* Module: ./util.js */'),
+      `${relPath}: Bundler should include dependency module`,
+    );
+
+    // Test TreeShaker functionality
+    const shaker = new mod.TreeShaker(modules);
+    const shaken = shaker.shake('./entry.js');
+    assert.ok(
+      shaken instanceof Map,
+      `${relPath}: TreeShaker should return a Map`,
+    );
+    assert.ok(
+      shaken.has('./entry.js'),
+      `${relPath}: TreeShaker should include entry module`,
+    );
+
+    // Test ModuleSystem functionality
+    const modSys = new mod.ModuleSystem();
+    modSys.define('testMod', [], () => ({ value: 123 }));
+    const result = modSys.require('testMod');
+    assert.strictEqual(
+      result.value,
+      123,
+      `${relPath}: ModuleSystem should resolve module correctly`,
+    );
+
+    // Test Obfuscator functionality
+    const obfuscator = new mod.Obfuscator({ encodeStrings: true });
+    const obfuscated = obfuscator.obfuscate('const msg = "hello";');
+    assert.ok(
+      obfuscated.includes('\\x'),
+      `${relPath}: Obfuscator should encode strings to hex`,
+    );
+    assert.ok(
+      !obfuscated.includes('"hello"'),
+      `${relPath}: Obfuscator should not contain original string`,
+    );
+
+    // Test Pipeline functionality (in-memory)
+    const pipeline = new mod.Pipeline({ outputFile: null });
+    pipeline.withModules(modules).useBundler().useMinifier();
+    const pipelineResult = await pipeline.run();
+    assert.ok(
+      typeof pipelineResult === 'string' && pipelineResult.length > 0,
+      `${relPath}: Pipeline should produce output`,
     );
   }
 });

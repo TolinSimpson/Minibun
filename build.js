@@ -4,7 +4,6 @@
 //   all algorithm implementations and exports them as both ESM and CommonJS.
 // - With `--variants`: additionally build several test bundles derived from
 //   dist/minibun.js:
-//   - dist/minibun-build.js   (baseline bundle)
 //   - dist/minibun-min.js     (minified using the library Minifier)
 //   - dist/minibun-obf.js     (string-obfuscated using the library Obfuscator)
 //   - dist/minibun-min-obf.js (minified + string-obfuscated)
@@ -98,10 +97,6 @@ async function buildVariantBundles() {
   const minObfCode = obfuscator.obfuscate(minCode);
 
   const variants = [
-    {
-      name: 'minibun-build.js',
-      content: baseCode,
-    },
     {
       name: 'minibun-min.js',
       content: minCode,

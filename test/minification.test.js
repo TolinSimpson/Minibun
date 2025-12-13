@@ -53,7 +53,7 @@ test('Minifier can keep comments when keepComments option is true', () => {
   assert.ok(output.includes('// and me'));
 });
 
-test('Minifier shortens boolean and null literals', () => {
+test('Minifier shortens boolean literals but preserves null', () => {
   const source = `
     if (true) { a = false; b = null; }
   `;
@@ -63,7 +63,9 @@ test('Minifier shortens boolean and null literals', () => {
 
   assert.ok(output.includes('!0'), 'true should be shortened to !0');
   assert.ok(output.includes('!1'), 'false should be shortened to !1');
-  assert.ok(output.includes('void 0'), 'null should be shortened to void 0');
+  // Note: null is intentionally NOT transformed to void 0 because they have
+  // different semantics (null === void 0 is false, and typeof null is 'object')
+  assert.ok(output.includes('null'), 'null should be preserved as-is');
 });
 
 test('Minifier handles empty and whitespace-only input', () => {

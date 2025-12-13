@@ -2,17 +2,9 @@
 // Obfuscator: string encoding + identifier renaming + optional control-flow
 // flattening. String encoding replaces literal contents with hexadecimal
 // escape sequences (e.g. "Hi" -> "\\x48\\x69") while preserving semantics.
+// Uses the tokenizer for robust parsing that handles all JS syntax correctly.
 
 import { tokenize } from './parser.js';
-
-const OBFUSCATOR_STRING_RE = /(['"`])(?:\\[\s\S]|(?!\1)[^\\])*\1/g;
-const OBFUSCATOR_IDENT_RE = /\b([A-Za-z_$][\w$]*)\b/g;
-const OBFUSCATOR_RESERVED = new Set([
-  'break','case','catch','class','const','continue','debugger','default','delete',
-  'do','else','export','extends','finally','for','function','if','import','in',
-  'instanceof','let','new','return','super','switch','this','throw','try','typeof',
-  'var','void','while','with','yield','enum','await'
-]);
 
 const OBFUSCATOR_GLOBALS = new Set([
   'window',
@@ -33,7 +25,29 @@ const OBFUSCATOR_GLOBALS = new Set([
   'Set',
   'Map',
   'Buffer',
-  'atob'
+  'atob',
+  'undefined',
+  'NaN',
+  'Infinity',
+  'Error',
+  'TypeError',
+  'ReferenceError',
+  'SyntaxError',
+  'RangeError',
+  'eval',
+  'parseInt',
+  'parseFloat',
+  'isNaN',
+  'isFinite',
+  'encodeURI',
+  'decodeURI',
+  'encodeURIComponent',
+  'decodeURIComponent',
+  'require',
+  'module',
+  'exports',
+  '__dirname',
+  '__filename',
 ]);
 
 export class Obfuscator {
@@ -102,57 +116,56 @@ export class Obfuscator {
   renameIdentifiers(code) {
     if (!this.options.renameIdentifiers) return code;
 
-    // Preserve string literals so that identifier renaming never changes
-    // string contents; this allows encodeStrings to be controlled separately.
-    const strings = [];
-    // Use a placeholder that cannot be parsed as an identifier so that the
-    // identifier regex never matches inside it.
-    const placeholder = '\u0000';
-    let i = 0;
-
-    const withoutStrings = code.replace(OBFUSCATOR_STRING_RE, match => {
-      const key = `${placeholder}${i++}${placeholder}`;
-      strings.push(match);
-      return key;
-    });
-
+    const tokens = tokenize(code);
     this.idMap.clear();
-    let match;
-    while ((match = OBFUSCATOR_IDENT_RE.exec(withoutStrings)) !== null) {
-      const name = match[1];
-      const index = match.index;
-      if (!this.shouldRenameIdentifier(withoutStrings, index, name)) continue;
-      if (this.idMap.has(name)) continue;
+
+    // First pass: collect all renamable identifiers
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok.type !== 'identifier') continue;
+      if (!this.shouldRenameIdentifier(tokens, i)) continue;
+      if (this.idMap.has(tok.value)) continue;
       const newName = this.generateName(this.idMap.size);
-      this.idMap.set(name, newName);
+      this.idMap.set(tok.value, newName);
     }
-    OBFUSCATOR_IDENT_RE.lastIndex = 0;
 
-    let out = withoutStrings.replace(OBFUSCATOR_IDENT_RE, (full, name, offset) => {
-      if (!this.shouldRenameIdentifier(withoutStrings, offset, name)) return full;
-      const rep = this.idMap.get(name);
-      return rep || full;
-    });
-
-    // Restore string literals
-    strings.forEach((s, idx) => {
-      const key = `${placeholder}${idx}${placeholder}`;
-      out = out.split(key).join(s);
-    });
+    // Second pass: rebuild code with renamed identifiers
+    let out = '';
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok.type === 'identifier' && this.shouldRenameIdentifier(tokens, i)) {
+        const renamed = this.idMap.get(tok.value);
+        out += renamed || tok.value;
+      } else {
+        out += tok.value;
+      }
+    }
 
     return out;
   }
 
-  shouldRenameIdentifier(code, index, name) {
-    if (OBFUSCATOR_RESERVED.has(name)) return false;
+  shouldRenameIdentifier(tokens, index) {
+    const tok = tokens[index];
+    const name = tok.value;
+
+    // Don't rename keywords (tokenizer already marks them, but double-check)
+    if (tok.type === 'keyword') return false;
+
+    // Don't rename global identifiers
     if (OBFUSCATOR_GLOBALS.has(name)) return false;
 
-    // Look backwards to find previous non-whitespace character
-    let i = index - 1;
-    while (i >= 0 && /\s/.test(code[i])) i -= 1;
-    if (i >= 0 && code[i] === '.') {
-      // property access: obj.name
-      return false;
+    // Look backwards to find previous non-whitespace token
+    let prevIdx = index - 1;
+    while (prevIdx >= 0 && tokens[prevIdx].type === 'whitespace') {
+      prevIdx--;
+    }
+
+    if (prevIdx >= 0) {
+      const prev = tokens[prevIdx];
+      // Property access: obj.name or obj?.name
+      if (prev.type === 'punctuator' && (prev.value === '.' || prev.value === '?.')) {
+        return false;
+      }
     }
 
     return true;

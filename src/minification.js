@@ -40,10 +40,6 @@ export class Minifier {
           transformed.push({ ...t, type: 'code', value: '!1' });
           continue;
         }
-        if (t.value === 'null') {
-          transformed.push({ ...t, type: 'code', value: 'void 0' });
-          continue;
-        }
       }
 
       transformed.push(t);

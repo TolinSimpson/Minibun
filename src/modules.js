@@ -40,8 +40,19 @@ export class ModuleSystem {
       return Promise.resolve().then(() => this.require(name));
     }
   
-    async loadModule(path, name) {
-      const code = await (await fetch(path)).text();
+  async loadModule(path, name) {
+    let code;
+    try {
+      const response = await fetch(path);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch module: ${response.status} ${response.statusText}`);
+      }
+      code = await response.text();
+    } catch (err) {
+      throw new Error(`Failed to load module "${name}" from "${path}": ${err.message}`);
+    }
+
+    try {
       const module = { exports: {} };
       const exports = module.exports;
       const factory = new Function('module', 'exports', code + '\nreturn module.exports;');
@@ -49,7 +60,10 @@ export class ModuleSystem {
       const finalExports = result !== undefined ? result : module.exports;
       this.cache.set(name, finalExports);
       return finalExports;
+    } catch (err) {
+      throw new Error(`Failed to execute module "${name}": ${err.message}`);
     }
+  }
   }
   
   // CommonJS export
