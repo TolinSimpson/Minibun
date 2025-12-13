@@ -1,14 +1,7 @@
 # Minibun - A tiny javascript bundler implementation.
 
-> ⚠️ **EXPERIMENTAL** – See Scope & limitations
-
----
-## The tiny web ecosystem
-### [Minirend](https://github.com/TolinSimpson/minirend) - A tiny cross-platform javascript runtime & web renderer
-### [minima-js](https://github.com/TolinSimpson/minima-js) - A tiny, fully-featured, zero-dependency JavaScript framework. 
-### [LLM Tiny Web](https://github.com/TolinSimpson/LLM-Agent-Tiny-Web-Instructions) - Optimized LLM instructions for writing tiny web code
----
-# Minibun - A tiny javascript bundler implementation.
+[![Publish to GitHub Packages](https://github.com/TolinSimpson/Minibun/actions/workflows/publish.yml/badge.svg)](https://github.com/TolinSimpson/Minibun/actions/workflows/publish.yml)
+[![Create Release on Version Change](https://github.com/TolinSimpson/Minibun/actions/workflows/release.yml/badge.svg)](https://github.com/TolinSimpson/Minibun/actions/workflows/release.yml)
 
 > ⚠️ **EXPERIMENTAL** – See Scope & limitations
 
